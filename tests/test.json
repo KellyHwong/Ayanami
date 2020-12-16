@@ -1,0 +1,29 @@
+{
+  "component": {
+    "params": {
+      "schemaVersion": 1,
+      "loop": false,
+      "autoPlay": false,
+      "isPlaylistOpen": false,
+      "playlist": [
+        {
+          "audioFileUrl": "https://img.moegirl.org.cn/common/d/d4/Cv-30105_link4.mp3",
+          "lrcFileUrl": "",
+          "title": "Cv-30105 link4.mp3",
+          "album": "",
+          "artist": "",
+          "isExplicit": false,
+          "navigationUrl": "/File:Cv-30105_link4.mp3",
+          "coverImageUrl": "",
+          "lrcFileOffset": 0
+        }
+      ],
+      "compactMode": true,
+      "backgroundColor": "",
+      "foregroundColor": "",
+      "trackColor": "",
+      "thumbColor": ""
+    },
+    "name": "sm2-player-fx"
+  }
+}
