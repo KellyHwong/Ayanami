@@ -4,11 +4,12 @@
 # @Author  : Kelly Hwong (dianhuangkan@gmail.com)
 
 import os
+import csv
 import requests
 import re
 from bs4 import BeautifulSoup
 import json
-from urllib.parse import unquote
+from urllib.parse import urlparse, unquote
 from utils.dir_utils import makedir_exist_ok
 
 
@@ -20,15 +21,14 @@ class Ayanami(object):
             "DNT": "1",
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36"
         }
-
         self.page_url = page_url
+
         # configs
-        self.chapterPath = "benzi"
-        self.download_processes_num = 4
+        self.num_download_processes = 4
 
         self.page_html = None
         self.voice_tables = None
-        self.voice_metas = None
+        self.voice_metas = []
 
     def _get_page_html(self):
         page_html = requests.get(self.page_url, headers=self.headers).content
@@ -36,7 +36,7 @@ class Ayanami(object):
         self.page_html = page_html
 
     def store_page_html(self):
-        with open("debug_ayanami.html", "w", encoding="utf-8") as f:
+        with open("./ayanami/debug_ayanami.html", "w", encoding="utf-8") as f:
             f.write(self.page_html)
 
     def _get_voice_tables(self):
@@ -44,7 +44,7 @@ class Ayanami(object):
         soup = BeautifulSoup(self.page_html, "lxml")
         wikitables = soup.find_all("table", {"class": "wikitable"})
         voice_tables = []
-        for i, table in enumerate(wikitables):
+        for table in wikitables:
             tds = table.find("tr").find_all("td")
             if len(tds) == 3 and tds[-1].find("div", {"data-bind": re.compile(r".*")}):
                 voice_tables.append(table)
@@ -52,41 +52,72 @@ class Ayanami(object):
         self.voice_tables = voice_tables
 
     def _get_voice_metas(self):
-        self.voice_metas = []
         for table in self.voice_tables:
             trs = table.find_all("tr")
-            for tr in trs:
+
+            scenario, dialogue, rowspan = "", "", 0
+            for i, _ in enumerate(trs):
+                tr = trs[i]
+
                 tds = tr.find_all("td")
-                div_data = tds[-1].find("div",
-                                        {"data-bind": re.compile(r".*")})
-                if div_data:
+                if len(tds) == 3:
+                    scenario = tds[0].text
+                td_rowspan = tr.find("td",
+                                     {"rowspan": re.compile(r".*")})
+                if td_rowspan:
+                    rowspan = int(td_rowspan["rowspan"])
+
+                if rowspan > 0:
+                    dialogue = tds[0].text
+                    div_data = tds[1].find("div",
+                                           {"data-bind": re.compile(r".*")})
+                    rowspan -= 1
+                else:  # there is no td with "rowspan" attribute
+                    dialogue = tds[1].text
+                    div_data = tds[2].find("div",
+                                           {"data-bind": re.compile(r".*")})
+
+                if div_data:  # if here is a play voice button
                     data_bind = div_data["data-bind"]
                     voice_meta = json.loads(data_bind)
-                    self.voice_metas.append(voice_meta)
+                    playlist = voice_meta["component"]["params"]["playlist"]
+                    assert len(playlist) == 1
+                    url = playlist[0]["audioFileUrl"]
+                    filename = os.path.basename((unquote(urlparse(url).path)))
+                    self.voice_metas.append(
+                        [filename, scenario, dialogue, url])
 
-    def _download_voice(self, voice_meta, folder):
-        """_download_voice
+        csv_file = "mp3/audio_files.csv"
+        with open(csv_file, 'w', newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(
+                ["filename", "scenario", "dialogue", "url"])
+            writer.writerows(self.voice_metas)
+            print(f"Voice metas stored to CSV file: {csv_file}.")
+
+    def _download(self, url, headers="", folder="", filename="", retried=0):
+        """_download
         # Arguments:
-            voice_meta voice meta data contained in the div_data
+            url:
         """
-        playlist = voice_meta["component"]["params"]["playlist"]
-        assert len(playlist) == 1
-        file_url = playlist[0]["audioFileUrl"]
-        navigation_url = playlist[0]["navigationUrl"]
-        file_name = unquote(navigation_url.split(":")[1])
+        filename = filename if filename else os.path.basename(
+            (unquote(urlparse(url).path)))
+
         if not os.path.isdir(folder):
             makedir_exist_ok(folder)
-        file_path = os.path.join(folder, file_name)
-        data = requests.get(file_url).content
-        with open(file_path, "wb") as f:
+        filepath = os.path.join(folder, filename)
+
+        data = requests.get(url).content
+        with open(filepath, "wb") as f:
             f.write(data)
-        print(f"Downloaded to {file_path}.")
+        print(f"Downloaded to {filepath}.")
 
     def _download_voices(self):
         print(
             f"{self.__class__} has {len(self.voice_metas)} voices. Now downloading...")
         for voice_meta in self.voice_metas:
-            self._download_voice(voice_meta)
+            pass
+            # self._download(url, filename=filename)
         print("Download complete!")
 
     def test(self):
