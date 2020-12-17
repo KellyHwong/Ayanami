@@ -13,15 +13,18 @@ from urllib.parse import urlparse, unquote
 from utils.dir_utils import makedir_exist_ok
 
 
-class Ayanami(object):
-    """docstring for Ayanami"""
+class AzurLaneVoice(object):
+    """Azur Lane character voices downloader from moegirl wiki.
+    """
 
-    def __init__(self, page_url):
+    def __init__(self, character_name, page_url):
+        self.character_name = character_name
+        self.page_url = page_url
+
         self.headers = {
             "DNT": "1",
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36"
         }
-        self.page_url = page_url
 
         # configs
         self.num_download_processes = 4
@@ -30,13 +33,16 @@ class Ayanami(object):
         self.voice_tables = None
         self.voice_metas = []
 
+        self.folder = os.path.join("mp3", f"{self.character_name}")
+        makedir_exist_ok(self.folder)
+
     def _get_page_html(self):
         page_html = requests.get(self.page_url, headers=self.headers).content
         page_html = page_html.decode("utf-8")
         self.page_html = page_html
 
     def store_page_html(self):
-        with open("./ayanami/debug_ayanami.html", "w", encoding="utf-8") as f:
+        with open(f"./ayanami/debug_{self.character_name}.html", "w", encoding="utf-8") as f:
             f.write(self.page_html)
 
     def _get_voice_tables(self):
@@ -55,27 +61,16 @@ class Ayanami(object):
         for table in self.voice_tables:
             trs = table.find_all("tr")
 
-            scenario, dialogue, rowspan = "", "", 0
-            for i, _ in enumerate(trs):
-                tr = trs[i]
-
+            scenario, dialogue = "", ""
+            for tr in trs:
                 tds = tr.find_all("td")
+
                 if len(tds) == 3:
                     scenario = tds[0].text
-                td_rowspan = tr.find("td",
-                                     {"rowspan": re.compile(r".*")})
-                if td_rowspan:
-                    rowspan = int(td_rowspan["rowspan"])
 
-                if rowspan > 0:
-                    dialogue = tds[0].text
-                    div_data = tds[1].find("div",
-                                           {"data-bind": re.compile(r".*")})
-                    rowspan -= 1
-                else:  # there is no td with "rowspan" attribute
-                    dialogue = tds[1].text
-                    div_data = tds[2].find("div",
-                                           {"data-bind": re.compile(r".*")})
+                dialogue = tds[-2].text
+                div_data = tds[-1].find("div",
+                                        {"data-bind": re.compile(r".*")})
 
                 if div_data:  # if here is a play voice button
                     data_bind = div_data["data-bind"]
@@ -87,7 +82,7 @@ class Ayanami(object):
                     self.voice_metas.append(
                         [filename, scenario, dialogue, url])
 
-        csv_file = "mp3/audio_files.csv"
+        csv_file = os.path.join(self.folder, "audio_files.csv")
         with open(csv_file, 'w', newline="") as f:
             writer = csv.writer(f)
             writer.writerow(
@@ -116,8 +111,8 @@ class Ayanami(object):
         print(
             f"{self.__class__} has {len(self.voice_metas)} voices. Now downloading...")
         for voice_meta in self.voice_metas:
-            pass
-            # self._download(url, filename=filename)
+            filename, url = voice_meta[0], voice_meta[3]
+            self._download(url, folder=self.folder, filename=filename)
         print("Download complete!")
 
     def test(self):
@@ -128,14 +123,16 @@ class Ayanami(object):
         self._download_voices()
 
 
-def ayanami_main():
-    from character_urls import ayanami_url
-    ayanami = Ayanami(ayanami_url)
-    ayanami.test()
+def AzurLaneVoice_test():
+    from character_urls import ayanami, z23
+    # ayanami = AzurLaneVoice(**ayanami)
+    # ayanami.test()
+    z23 = AzurLaneVoice(**z23)
+    z23.test()
 
 
 def main():
-    ayanami_main()
+    AzurLaneVoice_test()
 
 
 if __name__ == "__main__":
