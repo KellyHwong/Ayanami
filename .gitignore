@@ -1,5 +1,7 @@
 .vscode/
 debug/
+
+# downloaded voice files
 mp3/
 
 # Byte-compiled / optimized / DLL files
