@@ -3,6 +3,8 @@ debug/
 
 # downloaded voice files
 mp3/
+# development database
+database/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

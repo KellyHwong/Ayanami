@@ -9,40 +9,43 @@ import requests
 import re
 from bs4 import BeautifulSoup
 import json
-from urllib.parse import urlparse, unquote
-from utils.dir_utils import makedir_exist_ok
+from urllib.parse import urlparse, quote, unquote
 
 
 class AzurLaneVoice(object):
     """Azur Lane character voices downloader from moegirl wiki.
     """
 
-    def __init__(self, character_name, page_url):
-        self.character_name = character_name
-        self.page_url = page_url
+    def __init__(self, name, chinese_name):
+        self.name = name  # To store archives
+        self.chinese_name = chinese_name  # To seek url
 
         self.headers = {
             "DNT": "1",
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36"
         }
 
-        # configs
+        BASE_URL = "https://zh.moegirl.org.cn/zh-cn/"
+        self.page_url = "".join(
+            [BASE_URL, quote("碧蓝航线"), ":", quote(self.chinese_name)])
+
+        # Web configs
         self.num_download_processes = 4
 
         self.page_html = None
         self.voice_tables = None
         self.voice_metas = []
 
-        self.folder = os.path.join("mp3", f"{self.character_name}")
-        makedir_exist_ok(self.folder)
+        self.folder = os.path.join("characters", f"{self.name}"+"-Voice")
+        os.makedirs(self.folder, exist_ok=True)
 
     def _get_page_html(self):
         page_html = requests.get(self.page_url, headers=self.headers).content
         page_html = page_html.decode("utf-8")
         self.page_html = page_html
 
-    def store_page_html(self):
-        with open(f"./ayanami/debug_{self.character_name}.html", "w", encoding="utf-8") as f:
+    def debug_store_page_html(self):
+        with open(f"./debug_{self.name}.html", "w", encoding="utf-8") as f:
             f.write(self.page_html)
 
     def _get_voice_tables(self):
@@ -81,10 +84,12 @@ class AzurLaneVoice(object):
                     filename = os.path.basename((unquote(urlparse(url).path)))
                     self.voice_metas.append(
                         [filename, scenario, dialogue, url])
+                    # print(filename, scenario, dialogue, url)
+                    # input(123)
 
-        csv_file = os.path.join(self.folder, "audio_files.csv")
-        with open(csv_file, 'w', newline="") as f:
-            writer = csv.writer(f)
+        csv_file = os.path.join(self.folder, "metadata.csv")
+        with open(csv_file, 'w', newline="", encoding="utf-8") as f:
+            writer = csv.writer(f, delimiter="|")
             writer.writerow(
                 ["filename", "scenario", "dialogue", "url"])
             writer.writerows(self.voice_metas)
@@ -99,7 +104,7 @@ class AzurLaneVoice(object):
             (unquote(urlparse(url).path)))
 
         if not os.path.isdir(folder):
-            makedir_exist_ok(folder)
+            os.makedirs(folder, exist_ok=True)
         filepath = os.path.join(folder, filename)
 
         data = requests.get(url).content
@@ -112,23 +117,35 @@ class AzurLaneVoice(object):
             f"{self.__class__} has {len(self.voice_metas)} voices. Now downloading...")
         for voice_meta in self.voice_metas:
             filename, url = voice_meta[0], voice_meta[3]
-            self._download(url, folder=self.folder, filename=filename)
+            self._download(url, folder=os.path.join(
+                self.folder, "mp3"), filename=filename)
         print("Download complete!")
 
-    def test(self):
+    # Data procedures
+    def get_voice_metas(self):
         self._get_page_html()
-        self.store_page_html()
+        # self.debug_store_page_html()
+        self._get_voice_tables()
+        self._get_voice_metas()
+
+    def download_voices(self):
+        self._get_page_html()
+        # self.debug_store_page_html()
         self._get_voice_tables()
         self._get_voice_metas()
         self._download_voices()
 
 
 def AzurLaneVoice_test():
-    from character_urls import ayanami, z23
-    # ayanami = AzurLaneVoice(**ayanami)
-    # ayanami.test()
-    z23 = AzurLaneVoice(**z23)
-    z23.test()
+    from character_names import characters
+
+    def get_voice_metas_test():
+        for character in characters:
+            character = AzurLaneVoice(**character)
+            character.get_voice_metas()
+
+    get_voice_metas_test()
+    print("All characters in 'character_names' tested successfully!")
 
 
 def main():
