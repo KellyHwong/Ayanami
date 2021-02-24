@@ -5,10 +5,10 @@
 
 characters = [
     {
-        "name": "Ayanami", "chinese_name": "绫波"
+        "name": "Ayanami", "chinese_name": "绫波", "japanese_name": "綾波"
     },
     {
-        "name": "Z23", "chinese_name": "Z23",
+        "name": "Z23", "chinese_name": "Z23"
     },
     {
         "name": "Formidable", "chinese_name": "可畏"

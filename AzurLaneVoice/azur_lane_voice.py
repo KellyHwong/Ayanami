@@ -16,9 +16,10 @@ class AzurLaneVoice(object):
     """Azur Lane character voices downloader from moegirl wiki.
     """
 
-    def __init__(self, name, chinese_name):
+    def __init__(self, name, chinese_name, japanese_name=None):
         self.name = name  # To store archives
         self.chinese_name = chinese_name  # To seek url
+        self.japanese_name = japanese_name  # To seek japanese url
 
         self.headers = {
             "DNT": "1",
@@ -29,24 +30,47 @@ class AzurLaneVoice(object):
         self.page_url = "".join(
             [BASE_URL, quote("碧蓝航线"), ":", quote(self.chinese_name)])
 
+        self.page_url_jp = None
+        if self.japanese_name is not None:
+            BASE_URL_JP = "https://azurlane.wikiru.jp/index.php"
+            self.page_url_jp = "".join(
+                [BASE_URL_JP, "?", quote(self.japanese_name, encoding="EUC-JP")])
+
         # Web configs
         self.num_download_processes = 4
 
-        self.page_html = None
+        self.page_html = None  # character page
         self.voice_tables = None
         self.voice_metas = []
+
+        self.page_html_jp = None  # character page jp
+        self.voice_tables_jp = None
 
         self.folder = os.path.join("characters", f"{self.name}"+"-Voice")
         os.makedirs(self.folder, exist_ok=True)
 
-    def _get_page_html(self):
+    def _get_page_html(self, debug=False):
         page_html = requests.get(self.page_url, headers=self.headers).content
         page_html = page_html.decode("utf-8")
         self.page_html = page_html
 
-    def debug_store_page_html(self):
-        with open(f"./debug_{self.name}.html", "w", encoding="utf-8") as f:
-            f.write(self.page_html)
+        if debug:
+            with open(f"./debug_{self.name}.html", "w", encoding="utf-8") as f:
+                f.write(self.page_html)
+
+    def _get_page_html_jp(self, debug=False):
+        if self.page_url_jp is None:
+            raise ValueError(
+                "self.page_url_jp is None. Maybe self.japanese_name is not set!")
+        else:
+            response_jp = requests.get(
+                self.page_url_jp, headers=self.headers)
+            # page_html_jp = response_jp.context.decode("EUC-JP")
+            self.page_html_jp = response_jp.text  # directly use the response's text
+
+            if debug:
+                with open(f"./debug_{self.japanese_name}.html", "w", encoding="utf-8") as f:
+                    f.write(self.page_html_jp)
 
     def _get_voice_tables(self):
         assert self.page_html is not None
@@ -145,11 +169,20 @@ def AzurLaneVoice_test():
             character.get_voice_metas()
 
     get_voice_metas_test()
-    print("All characters in 'character_names' tested successfully!")
+    print("All characters in 'character_names.py' tested successfully!")
+
+
+def AzurLaneVoiceJP_test():
+    from character_names import characters
+    character = characters[0]  # Ayanami
+    character = AzurLaneVoice(**character)
+
+    character._get_page_html_jp(debug=True)
 
 
 def main():
-    AzurLaneVoice_test()
+    # AzurLaneVoice_test()
+    AzurLaneVoiceJP_test()
 
 
 if __name__ == "__main__":
