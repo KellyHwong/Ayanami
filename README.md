@@ -10,3 +10,7 @@ Retrieve Azur Lane characters' voices, and download.
 | ---- | ---- | -------- | -------------- |
 | 绫波 | DD   |          | To be released |
 | Z23  | DD   |          | To be released |
+
+## JP 文本说明
+
+`ボイス` 指普通台词文本，`着せ替え後` 指换装后的台词文本。
