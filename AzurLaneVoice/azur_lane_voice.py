@@ -161,16 +161,16 @@ class AzurLaneVoice(object):
             self.page_html_jp = self._get_page_html_jp()
         soup = BeautifulSoup(self.page_html_jp, "lxml")
 
-        all_h3 = soup.find_all("h3")
         all_h2 = soup.find_all("h2")
+        all_h3 = soup.find_all("h3")
+        all_h4 = soup.find_all("h4")
 
         voice_tags = []
-        for tag in all_h3:
-            if "ボイス" in tag.text:
-                voice_tags.append(tag)
-        for tag in all_h2:
-            if "ボイス" in tag.text:
-                voice_tags.append(tag)
+        all_hx = [all_h2, all_h3, all_h4]
+        for all_h in all_hx:
+            for tag in all_h:
+                if "ボイス" in tag.text:
+                    voice_tags.append(tag)
 
         count_total = 0
         csv_rows = []
@@ -225,14 +225,6 @@ def AzurLaneVoice_test():
 
     get_voice_metas_test()
     print("All characters in 'character_names.py' tested successfully!")
-
-
-def AzurLaneVoiceJP_test():
-    from character_names import characters
-    character = characters[0]  # Ayanami
-    character = AzurLaneVoice(**character)
-
-    character._get_page_html_jp(debug=True)
 
 
 def main():
