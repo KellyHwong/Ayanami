@@ -38,11 +38,9 @@ class AzurLaneVoice(object):
                 [BASE_URL_JP, "?", quote(self.japanese_name, encoding="EUC-JP")])
 
         self.page_html = None  # character page
-        self.voice_tables = None
         self.voice_metas = []
 
         self.page_html_jp = None  # character page jp
-        self.voice_tables_jp = None
 
         self.folder = os.path.join("characters", f"{self.name}"+"-Voice")
         os.makedirs(self.folder, exist_ok=True)
@@ -78,10 +76,14 @@ class AzurLaneVoice(object):
         for table in wikitables_with_voice:
             tag = table.previous_sibling.previous_sibling
             if tag and tag.name in ["h2", "h3"]:
-                span = tag.find("span", {"class": "mw-headline"})
-                current_prefix = span.text
-                if verbose:
-                    print(f"current_prefix: {current_prefix}")
+                pass
+            else:
+                # tag.name == 'p'
+                tag = tag.previous_sibling.previous_sibling
+            span = tag.find("span", {"class": "mw-headline"})
+            current_prefix = span.text
+            if verbose:
+                print(f"current_prefix: {current_prefix}")
 
             all_tr = table.find_all("tr")
 
@@ -106,7 +108,7 @@ class AzurLaneVoice(object):
                     self.voice_metas.append(
                         [current_prefix, scenario, dialogue, filename, url])
 
-        csv_file = os.path.join(self.folder, "metadata.csv")
+        csv_file = os.path.join(self.folder, "metadata_cn.csv")
         with open(csv_file, 'w', newline="", encoding="utf-8") as f:
             writer = csv.writer(f, delimiter="|")
             writer.writerow(
