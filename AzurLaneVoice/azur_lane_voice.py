@@ -212,7 +212,9 @@ class AzurLaneVoice(object):
         print(
             f"{self.__class__} has {len(self.voice_metas)} voices. Now downloading...")
         for voice_meta in self.voice_metas:
-            filename, url = voice_meta[0], voice_meta[3]
+            # voice_meta header:
+            # prefix|scenario|dialogue|filename|url
+            filename, url = voice_meta[3], voice_meta[4]
             self._download(url, headers=self.headers, folder=os.path.join(
                 self.folder, "mp3"), filename=filename)
         print("Download complete!")
@@ -242,11 +244,12 @@ def AzurLaneVoice_test():
         # for character in characters:
         character = characters[0]
         character = AzurLaneVoice(**character)
-        # character.get_voice_metas(langs=["cn"], verbose=1, debug=True)
-        character.get_voice_metas(langs=["jp"], verbose=1, debug=True)
+        character.get_voice_metas(langs=["cn", "jp"], verbose=1, debug=True)
+        print(f"""Character {character.name} tested successfully!""")
+        character.download_voices()
+        print(f"Downloading successfully!")
 
     get_voice_metas_test()
-    print(f"""Character {characters[0]["name"]} tested successfully!""")
 
 
 def main():
