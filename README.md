@@ -33,7 +33,7 @@ Retrieve Azur Lane characters' voices, and download.
 
 3. 彩蛋
 
-中文的`彩蛋`一 scenario 是个合成的一栏，`彩蛋|None`，对应 scenario_jp 下的若干个具体情节，绫波的是：
+中文的`彩蛋`一 scenario 是个合成的一栏，与日语的 scenario_jp 无法对应`彩蛋|None`，因为对应的 scenario_jp 下是若干个具体的情节，绫波的是：
 
 - `ラフィーと編成`
 - `ロング・アイランドと編成`

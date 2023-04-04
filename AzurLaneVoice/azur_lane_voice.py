@@ -27,43 +27,51 @@ class AzurLaneVoice(object):
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36"
         }
 
-        BASE_URL = "https://zh.moegirl.org.cn/zh-cn/"
-        self.page_url = "".join(
-            [BASE_URL, quote("碧蓝航线"), ":", quote(self.chinese_name)])
+        MOEGIRL_BASE_URL = "https://zh.moegirl.org.cn/zh-cn/"
+        self.moegirl_page_url = "".join(
+            [MOEGIRL_BASE_URL, quote("碧蓝航线"), ":", quote(self.chinese_name)])
 
-        self.page_url_jp = None
+        self.wikiru_page_url = None
         if self.japanese_name is not None:
-            BASE_URL_JP = "https://azurlane.wikiru.jp/index.php"
-            self.page_url_jp = "".join(
-                [BASE_URL_JP, "?", quote(self.japanese_name, encoding="EUC-JP")])
+            WIKIRU_BASE_URL = "https://azurlane.wikiru.jp/index.php"
+            self.wikiru_page_url = "".join(
+                [WIKIRU_BASE_URL, "?", quote(self.japanese_name, encoding="EUC-JP")])
 
-        self.page_html = None  # character page
+        self.moegirl_page_html = None  # character page
         self.voice_metas = []
 
         self.page_html_jp = None  # character page jp
 
-        self.folder = os.path.join("characters", f"{self.name}"+"-Voice")
+        self.folder = os.path.join("characters", f"{self.name}"+"-Voice-Text")
         os.makedirs(self.folder, exist_ok=True)
 
         # Download config
         self.num_download_processes = 4
 
-    # Moegirl wiki
-    def _get_page_html(self, debug=False):
-        page_html = requests.get(self.page_url, headers=self.headers).content
+    def _get_page_html(self, url, verbose=0, debug=False):
+        """Get Page HTML"""
+        if url is None:
+            raise ValueError(
+                f"url: {url} is None. Maybe self.japanese_name is not set!")
+        if verbose:
+            print(f"Get HTML from URL: {url}")
+        page_html = requests.get(url, headers=self.headers).content
         page_html = page_html.decode("utf-8")
 
         if debug:
             with open(f"./debug_{self.name}.html", "w", encoding="utf-8") as f:
-                f.write(self.page_html)
+                f.write(page_html)
 
         return page_html
 
-    def _get_voice_metas(self, verbose=0):
-        if self.page_html is None:
-            self.page_html = self._get_page_html()
+    # Moegirl wiki
+    def _get_voice_metas_cn(self, verbose=0, debug=False):
+        """从 Moegirl 上获取中文台本，以及台词url"""
+        if self.moegirl_page_html is None:
+            self.moegirl_page_html = self._get_page_html(
+                self.moegirl_page_url, verbose=verbose, debug=debug)
 
-        soup = BeautifulSoup(self.page_html, "lxml")
+        soup = BeautifulSoup(self.moegirl_page_html, "lxml")
         wikitables = soup.find_all("table", {"class": "wikitable"})
 
         wikitables_with_voice = []
@@ -77,11 +85,11 @@ class AzurLaneVoice(object):
             tag = table.previous_sibling.previous_sibling
             if tag and tag.name in ["h2", "h3"]:
                 pass
-            else:
-                # tag.name == 'p'
+            else:  # tag.name == 'p'
                 tag = tag.previous_sibling.previous_sibling
+
             span = tag.find("span", {"class": "mw-headline"})
-            current_prefix = span.text
+            current_prefix = span.string
             if verbose:
                 print(f"current_prefix: {current_prefix}")
 
@@ -90,21 +98,24 @@ class AzurLaneVoice(object):
             scenario, dialogue = "", ""
             for tr in all_tr:
                 tds = tr.find_all("td")
-
                 if len(tds) == 3:
-                    scenario = tds[0].text
-
-                dialogue = tds[-2].text
+                    scenario = tds[0].string
+                if verbose:
+                    print(f"scenario: {scenario}")
+                dialogue = tds[-2].string
                 div_data = tds[-1].find("div",
                                         {"data-bind": re.compile(r".*")})
-
-                if div_data:  # if here is a play voice button
+                if verbose:
+                    print(f"dialogue: {dialogue}")
+                if div_data:  # If here is a voice play button
                     data_bind = div_data["data-bind"]
                     voice_meta = json.loads(data_bind)
                     playlist = voice_meta["component"]["params"]["playlist"]
                     assert len(playlist) == 1
                     url = playlist[0]["audioFileUrl"]
                     filename = os.path.basename((unquote(urlparse(url).path)))
+                    if verbose:
+                        print(f"filename: {filename}")
                     self.voice_metas.append(
                         [current_prefix, scenario, dialogue, filename, url])
 
@@ -114,6 +125,70 @@ class AzurLaneVoice(object):
             writer.writerow(
                 ["prefix",  "scenario", "dialogue", "filename", "url"])
             writer.writerows(self.voice_metas)
+            print(f"Voice metas stored to CSV file: {csv_file}.")
+
+    # Azurlane Wikiru
+    def _get_voice_metas_jp(self, verbose=0, debug=False):
+        """从 wikiru 上获取日语台本"""
+        if self.page_html_jp is None:
+            self.page_html_jp = self._get_page_html(
+                self.wikiru_page_url, verbose=verbose, debug=debug)
+        soup = BeautifulSoup(self.page_html_jp, "lxml")
+
+        all_headers = soup.find_all(re.compile('^h[1-6]$'))
+        voice_headers = []
+        for header in all_headers:
+            # for tag in all_h:
+            if "ボイス" in header.text:
+                voice_headers.append(header)
+
+        count_total = 0
+        csv_rows = []
+
+        _div_containers = voice_headers[0].find_next_siblings(
+            "div", {"class": "rgn-container"})
+        div_containers = []
+        for container in _div_containers:
+            div_description = container.find(
+                "div", {"class": "rgn-description"})
+            if div_description and div_description.find("p"):  # 可展开表格的标题
+                div_containers.append(container)  # prefix候选词
+                print(div_description.p.text)
+
+        for container in div_containers:
+            prefix = container.find(
+                "div", {"class": "rgn-description"}).find("p").text
+            if "クリック" in prefix:
+                prefix = container.find_previous_sibling(
+                    re.compile('^h[3-4]$')).text.replace('†', '').strip()
+            if verbose:
+                print(f"栏目名称 prefix: {prefix}")
+            div_content = container.find(
+                "div", {"class": "rgn-content"})
+            all_tr = div_content.find_all("tr")
+            count = 0
+            for tr in all_tr:
+                th, td = tr.find("th"), tr.find("td")
+                if th and td:
+                    scenario, dialogue = th.text, td.text
+                    if scenario == "" or dialogue == "":
+                        continue
+                    row = [prefix, scenario, dialogue]
+                    csv_rows.append(row)
+                    print("|".join(row))
+                    count += 1
+            if verbose:
+                print(f"本场景台词数: {count}")
+            count_total += count
+
+        if verbose:
+            print(f"台词总数: {count_total}")
+
+        csv_file = os.path.join(self.folder, "metadata_jp.csv")
+        with open(csv_file, 'w', newline="", encoding="utf-8") as f:
+            writer = csv.writer(f, delimiter="|")
+            writer.writerow(["prefix", "scenario", "dialogue"])
+            writer.writerows(csv_rows)
             print(f"Voice metas stored to CSV file: {csv_file}.")
 
     def _download(self, url, headers="", folder="", filename="", retried=0):
@@ -142,77 +217,21 @@ class AzurLaneVoice(object):
                 self.folder, "mp3"), filename=filename)
         print("Download complete!")
 
-    # Azurlane wikiru
-    def _get_page_html_jp(self, debug=False):
-        if self.page_url_jp is None:
-            raise ValueError(
-                "self.page_url_jp is None. Maybe self.japanese_name is not set!")
-        else:
-            response_jp = requests.get(
-                self.page_url_jp, headers=self.headers)
-            # page_html_jp = response_jp.context.decode("EUC-JP")
-
-            if debug:
-                with open(f"./debug_{self.japanese_name}.html", "w", encoding="utf-8") as f:
-                    f.write(self.page_html_jp)
-
-            return response_jp.text  # directly use the response's text
-
-    def _get_voice_metas_jp(self):
-        if self.page_html_jp is None:
-            self.page_html_jp = self._get_page_html_jp()
-        soup = BeautifulSoup(self.page_html_jp, "lxml")
-
-        all_h2 = soup.find_all("h2")
-        all_h3 = soup.find_all("h3")
-        all_h4 = soup.find_all("h4")
-
-        voice_tags = []
-        all_hx = [all_h2, all_h3, all_h4]
-        for all_h in all_hx:
-            for tag in all_h:
-                if "ボイス" in tag.text:
-                    voice_tags.append(tag)
-
-        count_total = 0
-        csv_rows = []
-        for tag in voice_tags:
-            prefix = tag.text
-            prefix = prefix.replace('†', '').strip()
-            print(f"栏目名称：{prefix}")
-
-            _text = tag.next_sibling
-            table_tag = _text.next_sibling
-            div_tag = table_tag.find("div", {"class", "ie5"})
-
-            all_tr = div_tag.find_all("tr")
-            count = 0
-            for tr in all_tr:
-                th, td = tr.find("th"), tr.find("td")
-                if th and td:
-                    count += 1
-                    scenario, dialogue = th.text, td.text
-                    row = [prefix, scenario, dialogue]
-                    csv_rows.append(row)
-                    print("|".join(row))
-            print(f"本栏语音数: {count}")
-            count_total += count
-        print(f"语音总数: {count_total}")
-
-        csv_file = os.path.join(self.folder, "metadata_jp.csv")
-        with open(csv_file, 'w', newline="", encoding="utf-8") as f:
-            writer = csv.writer(f, delimiter="|")
-            writer.writerow(["prefix", "scenario", "dialogue"])
-            writer.writerows(csv_rows)
-            print(f"Voice metas stored to CSV file: {csv_file}.")
-
     # Data procedures
-    def get_voice_metas(self):
-        self._get_voice_metas()
-        self._get_voice_metas_jp()
+
+    def get_voice_metas(self, langs=None, verbose=0, debug=False):
+        """langs: None or List, options can be cn or jp."""
+        if langs is None:  # Get both
+            self._get_voice_metas_cn(verbose=verbose, debug=debug)
+            self._get_voice_metas_jp(verbose=verbose, debug=debug)
+        else:
+            if "cn" in langs:
+                self._get_voice_metas_cn(verbose=verbose, debug=debug)
+            if "jp" in langs:
+                self._get_voice_metas_jp(verbose=verbose, debug=debug)
 
     def download_voices(self):
-        self._get_voice_metas()
+        self._get_voice_metas_cn()
         self._download_voices()
 
 
@@ -223,10 +242,11 @@ def AzurLaneVoice_test():
         # for character in characters:
         character = characters[0]
         character = AzurLaneVoice(**character)
-        character.get_voice_metas()
+        # character.get_voice_metas(langs=["cn"], verbose=1, debug=True)
+        character.get_voice_metas(langs=["jp"], verbose=1, debug=True)
 
     get_voice_metas_test()
-    print("All characters in 'character_names.py' tested successfully!")
+    print(f"""Character {characters[0]["name"]} tested successfully!""")
 
 
 def main():
