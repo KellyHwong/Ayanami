@@ -5,8 +5,9 @@
 
 import os
 import csv
-import requests
 import re
+import requests
+import yaml
 from bs4 import BeautifulSoup
 import json
 from urllib.parse import urlparse, quote, unquote
@@ -238,7 +239,9 @@ class AzurLaneVoice(object):
 
 
 def AzurLaneVoice_test():
-    from character_names import characters
+    yaml_file = os.path.join("azur_lane_characters.yml")
+    with open(yaml_file, 'r', encoding="utf-8") as f:
+        characters = yaml.safe_load(f)
 
     def get_voice_metas_test():
         # for character in characters:
