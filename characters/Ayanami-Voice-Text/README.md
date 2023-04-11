@@ -12,9 +12,9 @@ TODO
 
 VITS 需要的格式是，每一行为下列数据的 CSV 文件：
 
-```csv
-relative_filepath|script_text
-```
+| filename        | dialogue_jp                                            |
+| --------------- | ------------------------------------------------------ |
+| 绫波 unlock.mp3 | 綾波……です。「鬼神」とよく言われるのです。よろしくです |
 
 文件路径相对于 vits 下的 `train.py` 文件。
 
