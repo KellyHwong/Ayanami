@@ -3,6 +3,8 @@ debug/
 
 # downloaded voice files
 mp3/
+wav/
+
 # development database
 database/
 
