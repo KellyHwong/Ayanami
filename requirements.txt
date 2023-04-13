@@ -1,0 +1,4 @@
+requests
+PyYAML
+beautifulsoup4
+lxml

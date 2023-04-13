@@ -49,7 +49,7 @@ class AzurLaneVoice(object):
         # Download config
         self.num_download_processes = 4
 
-    def _get_page_html(self, url, verbose=0, debug=False):
+    def _get_page_html(self, url, page_name, verbose=0, debug=False):
         """Get Page HTML"""
         if url is None:
             raise ValueError(
@@ -60,7 +60,7 @@ class AzurLaneVoice(object):
         page_html = page_html.decode("utf-8")
 
         if debug:
-            with open(f"./debug_{self.name}.html", "w", encoding="utf-8") as f:
+            with open(f"./debug_{page_name}.html", "w", encoding="utf-8") as f:
                 f.write(page_html)
 
         return page_html
@@ -70,7 +70,7 @@ class AzurLaneVoice(object):
         """从 Moegirl 上获取中文台本，以及台词url"""
         if self.moegirl_page_html is None:
             self.moegirl_page_html = self._get_page_html(
-                self.moegirl_page_url, verbose=verbose, debug=debug)
+                self.moegirl_page_url, page_name="moegirl", verbose=verbose, debug=debug)
 
         soup = BeautifulSoup(self.moegirl_page_html, "lxml")
         wikitables = soup.find_all("table", {"class": "wikitable"})
@@ -133,7 +133,7 @@ class AzurLaneVoice(object):
         """从 wikiru 上获取日语台本"""
         if self.page_html_jp is None:
             self.page_html_jp = self._get_page_html(
-                self.wikiru_page_url, verbose=verbose, debug=debug)
+                self.wikiru_page_url, page_name="wikiru", verbose=verbose, debug=debug)
         soup = BeautifulSoup(self.page_html_jp, "lxml")
 
         all_headers = soup.find_all(re.compile('^h[1-6]$'))
@@ -241,7 +241,8 @@ class AzurLaneVoice(object):
 def AzurLaneVoice_test():
     yaml_file = os.path.join("azur_lane_characters.yml")
     with open(yaml_file, 'r', encoding="utf-8") as f:
-        characters = yaml.safe_load(f)
+        data = yaml.safe_load(f)
+    characters = data["characters"]
 
     def get_voice_metas_test():
         # for character in characters:
